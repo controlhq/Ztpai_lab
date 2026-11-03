@@ -7,23 +7,35 @@ const { createRoomsService } = require('./modules/rooms/rooms.service');
 const { createRoomsController } = require('./modules/rooms/rooms.controller');
 const { createRoomsRouter } = require('./modules/rooms/rooms.routes');
 
+const { createBuildingsService } = require('./modules/buildings/buildings.service');
+const { createBuildingsController } = require('./modules/buildings/buildings.controller');
+const { createBuildingsRouter } = require('./modules/buildings/buildings.routes');
+
 const { createReservationsService } = require('./modules/reservations/reservations.service');
 const { createReservationsController } = require('./modules/reservations/reservations.controller');
 const { createReservationsRouter } = require('./modules/reservations/reservations.routes');
 
 // Buduje aplikację, ale jej nie uruchamia. Repositories i zegar wstrzykiwane z zewnątrz.
-function createApp({ roomsRepository, reservationsRepository, now = () => new Date() }) {
+function createApp({ roomsRepository, reservationsRepository, buildingsRepository, now = () => new Date() }) {
   const app = express();
 
   app.use(requestLogger);
   app.use(express.json());
 
-  const roomsService = createRoomsService({ roomsRepository });
+  const roomsService = createRoomsService({ roomsRepository, buildingsRepository });
+  const buildingsService = createBuildingsService({ buildingsRepository });
   const reservationsService = createReservationsService({
     reservationsRepository,
     roomsRepository,
     now,
   });
+
+  app.use(
+    '/api/buildings',
+    createBuildingsRouter({
+      buildingsController: createBuildingsController({ buildingsService }),
+    })
+  );
 
   app.use('/api/rooms', createRoomsRouter({ roomsController: createRoomsController({ roomsService }) }));
   app.use(

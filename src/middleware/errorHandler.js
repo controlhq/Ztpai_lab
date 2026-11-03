@@ -27,6 +27,10 @@ function errorHandler(err, req, res, next) {
     status = 413;
     code = 'PAYLOAD_TOO_LARGE';
     message = 'Request body too large';
+  } else if( err.code == '23505'){
+    status = 409;
+    code = 'DUPLICATE_RESOURCE';
+    message = 'Resource already exists';
   } else {
     // stack trace tylko do logów, nigdy do klienta
     console.error(`[${req.id}] Unhandled error: ${err.stack || err}`);

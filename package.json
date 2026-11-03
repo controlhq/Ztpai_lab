@@ -8,7 +8,9 @@
     "start": "node server.js",
     "migrate:make": "knex migrate:make",
     "migrate:latest": "knex migrate:latest",
-    "migrate:rollback": "knex migrate:rollback --all"
+    "migrate:rollback": "knex migrate:rollback --all",
+    "seed:run": "knex seed:run"
+
   },
   "keywords": [],
   "author": "",

@@ -11,6 +11,11 @@ function createRoomsController({ roomsService }) {
       const room = await roomsService.getById(req.validated.params.id);
       res.json(toRoomResponse(room));
     },
+
+    async create(req, res) {
+      const room = await roomsService.create(req.validated.body);
+      res.status(201).json(toRoomResponse(room));
+    },
   };
 }
 
