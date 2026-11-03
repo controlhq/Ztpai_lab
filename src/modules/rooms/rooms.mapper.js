@@ -7,4 +7,13 @@ function toRoomResponse(room) {
   };
 }
 
-module.exports = { toRoomResponse };
+function toRoomDetailResponse(room) {
+  return {
+    id: room.id,
+    name: room.name,
+    capacity: room.capacity,
+    building: { id: room.building.id, name: room.building.name },
+  };
+}
+
+module.exports = { toRoomResponse, toRoomDetailResponse };

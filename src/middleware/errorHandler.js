@@ -31,6 +31,11 @@ function errorHandler(err, req, res, next) {
     status = 409;
     code = 'DUPLICATE_RESOURCE';
     message = 'Resource already exists';
+  } else if (err.code === '23P01') {
+  // naruszenie exclusion constraint: zakładamy, że to nakładająca się rezerwacja
+    status = 409;
+    code = 'ROOM_ALREADY_BOOKED';
+    message = 'Room is already booked in the requested time range';
   } else {
     // stack trace tylko do logów, nigdy do klienta
     console.error(`[${req.id}] Unhandled error: ${err.stack || err}`);

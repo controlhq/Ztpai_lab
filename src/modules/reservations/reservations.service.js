@@ -22,70 +22,93 @@ function bodyError(field, message) {
   return new ValidationError([{ location: 'body', field, message }]);
 }
 
-function createReservationsService({ reservationsRepository, roomsRepository, now = () => new Date() }) {
+function createReservationsService({
+  reservationsRepository,
+  roomsRepository,
+  runInTransaction,
+  now = () => new Date(),
+}) {
   return {
-    async list({ roomId } = {}) {
-      if (roomId === undefined) {
-        return reservationsRepository.findAll();
+    async list(query = {}) {
+      const { page = 1, limit = 20, sort = 'startTime', ...filters } = query;
+      const { rows, total } = await reservationsRepository.findPage({
+        filters,
+        sort,
+        page,
+        limit,
+      });
+      return {
+        data: rows,
+        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      };
+    },
+
+    async getById(id) {
+      const reservation = await reservationsRepository.findByIdDetailed(id);
+      if (!reservation) {
+        throw new NotFoundError('Reservation not found', 'RESERVATION_NOT_FOUND');
       }
-      return reservationsRepository.findByRoomId(roomId);
+      return reservation;
     },
 
     async create({ roomId, reservedBy, participants, startTime, endTime }) {
-      const room = await roomsRepository.findById(roomId);
-      if (!room) {
-        throw new NotFoundError('Room not found', 'ROOM_NOT_FOUND');
-      }
+  return runInTransaction(async ({ roomsRepository, reservationsRepository }) => {
+    // blokada wiersza sali: równoległe rezerwacje tej samej sali czekają na commit
+    const room = await roomsRepository.findByIdForUpdate(roomId);
+    if (!room) {
+      throw new NotFoundError('Room not found', 'ROOM_NOT_FOUND');
+    }
 
-      const start = new Date(startTime).getTime();
-      const end = new Date(endTime).getTime();
-      const nowMs = now().getTime();
+    const start = new Date(startTime).getTime();
+    const end = new Date(endTime).getTime();
+    const nowMs = now().getTime();
 
-      if (end <= start) {
-        throw bodyError('endTime', 'endTime must be later than startTime');
-      }
+    if (end <= start) {
+      throw bodyError('endTime', 'endTime must be later than startTime');
+    }
 
-      const duration = end - start;
-      if (duration < MIN_DURATION_MS || duration > MAX_DURATION_MS) {
-        throw bodyError('endTime', 'Reservation must last between 15 minutes and 8 hours');
-      }
+    const duration = end - start;
+    if (duration < MIN_DURATION_MS || duration > MAX_DURATION_MS) {
+      throw bodyError('endTime', 'Reservation must last between 15 minutes and 8 hours');
+    }
 
-      if (start < nowMs) {
-        throw bodyError('startTime', 'startTime must not be in the past');
-      }
+    if (start < nowMs) {
+      throw bodyError('startTime', 'startTime must not be in the past');
+    }
 
-      if (participants > room.capacity) {
-        throw new ConflictError('ROOM_CAPACITY_EXCEEDED', 'Room capacity exceeded');
-      }
+    if (participants > room.capacity) {
+      throw new ConflictError('ROOM_CAPACITY_EXCEEDED', 'Room capacity exceeded');
+    }
 
-      const roomReservations = await reservationsRepository.findByRoomId(room.id);
-      const conflict = roomReservations.some(
-        (r) =>
-          r.status === 'CONFIRMED' &&
-          overlaps(
-            { start, end },
-            { start: new Date(r.startTime).getTime(), end: new Date(r.endTime).getTime() }
-          )
+    const roomReservations = await reservationsRepository.findByRoomId(room.id);
+    const conflict = roomReservations.some(
+      (r) =>
+        r.status === 'CONFIRMED' &&
+        overlaps(
+          { start, end },
+          { start: new Date(r.startTime).getTime(), end: new Date(r.endTime).getTime() }
+        )
+    );
+    if (conflict) {
+      throw new ConflictError(
+        'ROOM_ALREADY_BOOKED',
+        'Room is already booked in the requested time range'
       );
-      if (conflict) {
-        throw new ConflictError(
-          'ROOM_ALREADY_BOOKED',
-          'Room is already booked in the requested time range'
-        );
-      }
+    }
 
-      return reservationsRepository.create({
-        roomId: room.id,
-        reservedBy,
-        participants,
-        startTime: new Date(start).toISOString(),
-        endTime: new Date(end).toISOString(),
-        status: 'CONFIRMED',
-        createdAt: now().toISOString(),
-        cancelledAt: null,
-        internalNote: 'created via API v2',
-      });
-    },
+    return reservationsRepository.create({
+      roomId: room.id,
+      reservedBy,
+      participants,
+      startTime: new Date(start).toISOString(),
+      endTime: new Date(end).toISOString(),
+      status: 'CONFIRMED',
+      createdAt: now().toISOString(),
+      cancelledAt: null,
+      internalNote: 'created via API v2',
+    });
+  });
+},
 
     async cancel(id) {
       const reservation = await reservationsRepository.findById(id);

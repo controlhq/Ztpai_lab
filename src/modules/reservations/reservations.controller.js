@@ -1,11 +1,19 @@
-const { toReservationResponse } = require('./reservations.mapper');
+const {
+  toReservationResponse,
+  toReservationDetailResponse,
+} = require('./reservations.mapper');
 
-// Brak try/catch - Express 5 sam przekazuje odrzucone Promise do error middleware.
+
 function createReservationsController({ reservationsService }) {
   return {
     async list(req, res) {
-      const reservations = await reservationsService.list(req.validated.query);
-      res.json(reservations.map(toReservationResponse));
+      const { data, meta } = await reservationsService.list(req.validated.query);
+      res.json({ data: data.map(toReservationDetailResponse), meta });
+    },
+
+    async getById(req, res) {
+      const reservation = await reservationsService.getById(req.validated.params.id);
+      res.json(toReservationDetailResponse(reservation));
     },
 
     async create(req, res) {

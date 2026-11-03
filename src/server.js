@@ -1,6 +1,7 @@
 const { createApp } = require('./app');
 const db = require('./db/knex');
 const { createRoomsKnexRepository } = require('./modules/rooms/rooms.repository.knex');
+const { createRunInTransaction } = require('./db/runInTransaction');
 const {
   createReservationsKnexRepository,
 } = require('./modules/reservations/reservations.repository.knex');
@@ -14,6 +15,7 @@ const app = createApp({
   roomsRepository: createRoomsKnexRepository({ db }),
   reservationsRepository: createReservationsKnexRepository({ db }),
   buildingsRepository: createBuildingsKnexRepository({ db }),
+  runInTransaction: createRunInTransaction(db),
   now: () => new Date(),
 });
 

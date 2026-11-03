@@ -22,6 +22,10 @@ function createRoomsKnexRepository({ db }) {
         .returning('*');
       return toRoom(row);
     },
+    async findByIdForUpdate(id) {
+      const row = await db('rooms').where({ id }).forUpdate().first();
+      return row ? toRoom(row) : null;
+    },
   };
 }
 

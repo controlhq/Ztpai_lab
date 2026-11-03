@@ -16,17 +16,24 @@ const { createReservationsController } = require('./modules/reservations/reserva
 const { createReservationsRouter } = require('./modules/reservations/reservations.routes');
 
 // Buduje aplikację, ale jej nie uruchamia. Repositories i zegar wstrzykiwane z zewnątrz.
-function createApp({ roomsRepository, reservationsRepository, buildingsRepository, now = () => new Date() }) {
+function createApp({
+  roomsRepository,
+  reservationsRepository,
+  buildingsRepository,
+  runInTransaction,
+  now = () => new Date(),
+}) {
   const app = express();
 
   app.use(requestLogger);
   app.use(express.json());
 
   const roomsService = createRoomsService({ roomsRepository, buildingsRepository });
-  const buildingsService = createBuildingsService({ buildingsRepository });
+  const buildingsService = createBuildingsService({ buildingsRepository, roomsRepository });
   const reservationsService = createReservationsService({
     reservationsRepository,
     roomsRepository,
+    runInTransaction,
     now,
   });
 
