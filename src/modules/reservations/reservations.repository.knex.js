@@ -1,6 +1,6 @@
 const COLUMNS = {
   roomId: 'room_id',
-  reservedBy: 'reserved_by',
+  userId: 'user_id',
   participants: 'participants',
   startTime: 'start_time',
   endTime: 'end_time',
@@ -23,7 +23,7 @@ const iso = (d) => (d ? d.toISOString() : null);
 const toReservation = (row) => ({
   id: row.id,
   roomId: row.room_id,
-  reservedBy: row.reserved_by,
+  userId: row.user_id,
   participants: row.participants,
   startTime: iso(row.start_time),
   endTime: iso(row.end_time),
@@ -40,12 +40,14 @@ const toReservationDetailed = (row) => ({
     name: row.r_name,
     building: { id: row.b_id, name: row.b_name },
   },
+  user: { id: row.u_id, email: row.u_email },
 });
 
 const joinedQuery = (db) =>
   db('reservations as res')
     .join('rooms as r', 'r.id', 'res.room_id')
-    .join('buildings as b', 'b.id', 'r.building_id');
+    .join('buildings as b', 'b.id', 'r.building_id')
+    .join('users as u', 'u.id', 'res.user_id');
 
 const SELECT_DETAILED = [
   'res.*',
@@ -53,6 +55,8 @@ const SELECT_DETAILED = [
   'r.name as r_name',
   'b.id as b_id',
   'b.name as b_name',
+  'u.id as u_id',
+  'u.email as u_email',
 ];
 
 const detailedQuery = (db) => joinedQuery(db).select(...SELECT_DETAILED);
@@ -64,8 +68,9 @@ const SORT_COLUMNS = {
   participants: 'res.participants',
 };
 
-function applyFilters(query, { roomId, buildingId, status, from, to }) {
+function applyFilters(query, { roomId, buildingId, userId, status, from, to }) {
   if (roomId !== undefined) query.where('res.room_id', roomId);
+  if (userId !== undefined) query.where('res.user_id', userId);
   if (buildingId !== undefined) query.where('r.building_id', buildingId);
   if (status !== undefined) query.where('res.status', status);
   // nakładanie przedziałów [from, to): start < to AND end > from

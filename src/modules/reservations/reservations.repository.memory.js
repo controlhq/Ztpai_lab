@@ -6,7 +6,7 @@ function createReservationsRepository({ seed = true } = {}) {
     reservations.push({
       id: nextId++,
       roomId: 4,
-      reservedBy: 'Seed User',
+      userId: 1,
       participants: 5,
       startTime: '2026-01-10T10:00:00.000Z',
       endTime: '2026-01-10T12:00:00.000Z',

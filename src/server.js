@@ -8,17 +8,21 @@ const {
 const {
   createBuildingsKnexRepository,
 } = require('./modules/buildings/buildings.repository.knex');
+const { createUsersKnexRepository } = require('./modules/users/users.repository.knex');
 
-const PORT = process.env.PORT || 3000;
+const config = require('./config');
 
 const app = createApp({
   roomsRepository: createRoomsKnexRepository({ db }),
   reservationsRepository: createReservationsKnexRepository({ db }),
   buildingsRepository: createBuildingsKnexRepository({ db }),
+  usersRepository: createUsersKnexRepository({ db }),
   runInTransaction: createRunInTransaction(db),
+  jwtSecret: config.jwt.secret,
+  jwtExpiresIn: config.jwt.expiresIn,
   now: () => new Date(),
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(config.port, () => {
+  console.log(`Server running on http://localhost:${config.port}`);
 });

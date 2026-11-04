@@ -1,0 +1,76 @@
+@baseUrl = http://localhost:3000/api
+
+### 0. Logowanie (Jan Kowalski) - token do kolejnych requestów
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "jan.kowalski@example.com",
+  "password": "bardzo-dlugie-haslo"
+}
+
+### 1. Brak nagłówka Authorization -> 401
+GET {{baseUrl}}/reservations
+
+### 2. Zły format nagłówka: Basic -> 401
+GET {{baseUrl}}/reservations
+Authorization: Basic amFuOmhhc2xv
+
+### 3. Zły format nagłówka: Bearer bez tokenu -> 401
+GET {{baseUrl}}/reservations
+Authorization: Bearer
+
+### 4. Token ze złym podpisem -> 401 (wklej token i zmień jeden znak w ostatniej części)
+GET {{baseUrl}}/reservations
+Authorization: Bearer WKLEJ_TOKEN_ZE_ZMIENIONYM_ZNAKIEM
+
+### 5. Token ze zmienionym payloadem (role: ADMIN), oryginalny podpis -> 401
+GET {{baseUrl}}/reservations
+Authorization: Bearer WKLEJ_ZMODYFIKOWANY_TOKEN
+
+### 6. Token wygasły (JWT_EXPIRES_IN=10s, odczekaj 10 s po logowaniu) -> 401 Token expired
+GET {{baseUrl}}/reservations
+Authorization: Bearer {{login.response.body.accessToken}}
+
+### 7. Poprawny token -> 200
+GET {{baseUrl}}/reservations
+Authorization: Bearer {{login.response.body.accessToken}}
+
+### 8. Nowa rezerwacja - userId z tokenu -> 201, w odpowiedzi user: { id, email }
+POST {{baseUrl}}/reservations
+Authorization: Bearer {{login.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "roomId": 2,
+  "participants": 4,
+  "startTime": "2026-12-01T10:00:00Z",
+  "endTime": "2026-12-01T11:00:00Z"
+}
+
+### 9. Próba podania userId w body -> 400
+POST {{baseUrl}}/reservations
+Authorization: Bearer {{login.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "roomId": 2,
+  "userId": 1,
+  "participants": 4,
+  "startTime": "2026-12-02T10:00:00Z",
+  "endTime": "2026-12-02T11:00:00Z"
+}
+
+### 10. Próba podania reservedBy w body -> 400
+POST {{baseUrl}}/reservations
+Authorization: Bearer {{login.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "roomId": 2,
+  "reservedBy": "Ktoś Inny",
+  "participants": 4,
+  "startTime": "2026-12-03T10:00:00Z",
+  "endTime": "2026-12-03T11:00:00Z"
+}

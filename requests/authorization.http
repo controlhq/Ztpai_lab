@@ -1,0 +1,143 @@
+@baseUrl = http://localhost:3000/api
+
+# Rezerwacja 3 należy do Piotra (USER właściciel), Jan to USER obcy.
+# Rezerwacja 4 należy do Ewy - anuluje ją ADMIN.
+
+### Login: Piotr (USER właściciel rezerwacji 3)
+# @name piotr
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "piotr.zielinski@example.com", "password": "bardzo-dlugie-haslo" }
+
+### Login: Jan (USER obcy)
+# @name jan
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "jan.kowalski@example.com", "password": "bardzo-dlugie-haslo" }
+
+### Login: ADMIN
+# @name admin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "admin-haslo-123" }
+
+
+############ POST /api/buildings
+
+### brak tokenu -> 401
+POST {{baseUrl}}/buildings
+Content-Type: application/json
+
+{ "name": "Budynek C", "address": "ul. Testowa 1" }
+
+### USER -> 403
+POST {{baseUrl}}/buildings
+Authorization: Bearer {{jan.response.body.accessToken}}
+Content-Type: application/json
+
+{ "name": "Budynek C", "address": "ul. Testowa 1" }
+
+### ADMIN -> 201
+POST {{baseUrl}}/buildings
+Authorization: Bearer {{admin.response.body.accessToken}}
+Content-Type: application/json
+
+{ "name": "Budynek C", "address": "ul. Testowa 1" }
+
+
+############ POST /api/rooms
+
+### brak tokenu -> 401
+POST {{baseUrl}}/rooms
+Content-Type: application/json
+
+{ "buildingId": 1, "name": "301", "capacity": 25 }
+
+### USER -> 403
+POST {{baseUrl}}/rooms
+Authorization: Bearer {{jan.response.body.accessToken}}
+Content-Type: application/json
+
+{ "buildingId": 1, "name": "301", "capacity": 25 }
+
+### ADMIN -> 201
+POST {{baseUrl}}/rooms
+Authorization: Bearer {{admin.response.body.accessToken}}
+Content-Type: application/json
+
+{ "buildingId": 1, "name": "301", "capacity": 25 }
+
+
+############ GET /api/buildings, GET /api/rooms
+
+### brak tokenu -> 401
+GET {{baseUrl}}/buildings
+
+### USER -> 200
+GET {{baseUrl}}/buildings
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### ADMIN -> 200
+GET {{baseUrl}}/rooms
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+
+############ GET /api/reservations
+
+### brak tokenu -> 401
+GET {{baseUrl}}/reservations
+
+### USER -> 200, tylko własne rezerwacje
+GET {{baseUrl}}/reservations
+Authorization: Bearer {{piotr.response.body.accessToken}}
+
+### USER z ?userId= -> 403
+GET {{baseUrl}}/reservations?userId=2
+Authorization: Bearer {{piotr.response.body.accessToken}}
+
+### ADMIN -> 200, wszystkie rezerwacje
+GET {{baseUrl}}/reservations
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+### ADMIN z ?userId= -> 200, tylko rezerwacje użytkownika 4
+GET {{baseUrl}}/reservations?userId=4
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+
+############ GET /api/reservations/3
+
+### brak tokenu -> 401
+GET {{baseUrl}}/reservations/3
+
+### USER właściciel -> 200
+GET {{baseUrl}}/reservations/3
+Authorization: Bearer {{piotr.response.body.accessToken}}
+
+### USER obcy -> 404
+GET {{baseUrl}}/reservations/3
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### ADMIN -> 200
+GET {{baseUrl}}/reservations/3
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+
+############ PATCH /api/reservations/:id/cancel
+
+### brak tokenu -> 401
+PATCH {{baseUrl}}/reservations/3/cancel
+
+### USER obcy -> 404
+PATCH {{baseUrl}}/reservations/3/cancel
+Authorization: Bearer {{jan.response.body.accessToken}}
+
+### USER właściciel -> 200
+PATCH {{baseUrl}}/reservations/3/cancel
+Authorization: Bearer {{piotr.response.body.accessToken}}
+
+### ADMIN (cudza rezerwacja 4) -> 200
+PATCH {{baseUrl}}/reservations/4/cancel
+Authorization: Bearer {{admin.response.body.accessToken}}

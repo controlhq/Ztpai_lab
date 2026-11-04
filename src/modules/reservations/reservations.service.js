@@ -1,4 +1,4 @@
-const { NotFoundError, ConflictError, ValidationError } = require('../../errors');
+const { NotFoundError, ConflictError, ValidationError, ForbiddenError } = require('../../errors');
 
 const MIN_DURATION_MS = 15 * 60 * 1000;
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
@@ -22,6 +22,15 @@ function bodyError(field, message) {
   return new ValidationError([{ location: 'body', field, message }]);
 }
 
+const isAdmin = (user) => user.role === 'ADMIN';
+
+// cudza rezerwacja wygląda jak nieistniejąca - nie zdradzamy, że istnieje
+function assertCanAccess(reservation, currentUser) {
+  if (!reservation || (!isAdmin(currentUser) && reservation.userId !== currentUser.id)) {
+    throw new NotFoundError('Reservation not found', 'RESERVATION_NOT_FOUND');
+  }
+}
+
 function createReservationsService({
   reservationsRepository,
   roomsRepository,
@@ -29,8 +38,17 @@ function createReservationsService({
   now = () => new Date(),
 }) {
   return {
-    async list(query = {}) {
+    async list(query, currentUser) {
       const { page = 1, limit = 20, sort = 'startTime', ...filters } = query;
+
+      if (!isAdmin(currentUser)) {
+        if (filters.userId !== undefined) {
+          throw new ForbiddenError('Filter userId is available only for ADMIN');
+        }
+        // USER widzi tylko swoje rezerwacje - niezależnie od parametrów query
+        filters.userId = currentUser.id;
+      }
+
       const { rows, total } = await reservationsRepository.findPage({
         filters,
         sort,
@@ -43,15 +61,13 @@ function createReservationsService({
       };
     },
 
-    async getById(id) {
+    async getById(id, currentUser) {
       const reservation = await reservationsRepository.findByIdDetailed(id);
-      if (!reservation) {
-        throw new NotFoundError('Reservation not found', 'RESERVATION_NOT_FOUND');
-      }
+      assertCanAccess(reservation, currentUser);
       return reservation;
     },
 
-    async create({ roomId, reservedBy, participants, startTime, endTime }) {
+    async create({ roomId, participants, startTime, endTime }, currentUser) {
   return runInTransaction(async ({ roomsRepository, reservationsRepository }) => {
     // blokada wiersza sali: równoległe rezerwacje tej samej sali czekają na commit
     const room = await roomsRepository.findByIdForUpdate(roomId);
@@ -96,9 +112,9 @@ function createReservationsService({
       );
     }
 
-    return reservationsRepository.create({
+    const created = await reservationsRepository.create({
       roomId: room.id,
-      reservedBy,
+      userId: currentUser.id,
       participants,
       startTime: new Date(start).toISOString(),
       endTime: new Date(end).toISOString(),
@@ -107,14 +123,13 @@ function createReservationsService({
       cancelledAt: null,
       internalNote: 'created via API v2',
     });
+    return reservationsRepository.findByIdDetailed(created.id);
   });
 },
 
-    async cancel(id) {
-      const reservation = await reservationsRepository.findById(id);
-      if (!reservation) {
-        throw new NotFoundError('Reservation not found', 'RESERVATION_NOT_FOUND');
-      }
+    async cancel(id, currentUser) {
+      const reservation = await reservationsRepository.findByIdDetailed(id);
+      assertCanAccess(reservation, currentUser);
 
       // idempotentnie: ponowne anulowanie nic nie zmienia (cancelledAt zostaje)
       if (reservation.status === 'CANCELLED') {
@@ -135,10 +150,11 @@ function createReservationsService({
         );
       }
 
-      return reservationsRepository.update(id, {
+      await reservationsRepository.update(id, {
         status: 'CANCELLED',
         cancelledAt: now().toISOString(),
       });
+      return reservationsRepository.findByIdDetailed(id);
     },
   };
 }

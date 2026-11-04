@@ -1,8 +1,8 @@
-require('dotenv').config();
+const config = require('./src/config');
 
 module.exports = {
   client: 'pg',
-  connection: process.env.DATABASE_URL,
+  connection: config.databaseUrl,
   migrations: { directory: './migrations' },
   seeds: { directory: './seeds' },
 };

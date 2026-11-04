@@ -6,10 +6,10 @@ const isoDateWithTimezone = z.string().datetime({
   message: 'must be an ISO 8601 date with timezone, e.g. 2026-11-10T10:00:00Z or 2026-11-10T10:00:00+01:00',
 });
 
-// strictObject odrzuca nieznane pola (np. status, id, internalNote)
+// strictObject odrzuca nieznane pola (np. status, id, internalNote, userId, reservedBy)
+// właściciel rezerwacji pochodzi wyłącznie z tokenu
 const createReservationBody = z.strictObject({
   roomId: z.number().int().positive(),
-  reservedBy: z.string().trim().min(3).max(100),
   participants: z.number().int().positive(),
   startTime: isoDateWithTimezone,
   endTime: isoDateWithTimezone,
@@ -35,6 +35,7 @@ const listReservationsQuery = z
   .object({
     roomId: positiveIntString.optional(),
     buildingId: positiveIntString.optional(),
+    userId: positiveIntString.optional(),
     status: z.enum(['CONFIRMED', 'CANCELLED']).optional(),
     from: isoDateWithTimezone.optional(),
     to: isoDateWithTimezone.optional(),

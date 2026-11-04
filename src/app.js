@@ -1,4 +1,6 @@
 const express = require('express');
+const swaggerUi = require('swagger-ui-express');
+const openapiSpec = require('./docs/openapi');
 
 const { requestLogger } = require('./middleware/requestLogger');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
@@ -15,12 +17,20 @@ const { createReservationsService } = require('./modules/reservations/reservatio
 const { createReservationsController } = require('./modules/reservations/reservations.controller');
 const { createReservationsRouter } = require('./modules/reservations/reservations.routes');
 
+const { createAuthService } = require('./modules/auth/auth.service');
+const { createAuthController } = require('./modules/auth/auth.controller');
+const { createAuthRouter } = require('./modules/auth/auth.routes');
+const { createAuthenticate } = require('./middleware/authenticate');
+
 // Buduje aplikację, ale jej nie uruchamia. Repositories i zegar wstrzykiwane z zewnątrz.
 function createApp({
   roomsRepository,
   reservationsRepository,
   buildingsRepository,
+  usersRepository,
   runInTransaction,
+  jwtSecret,
+  jwtExpiresIn,
   now = () => new Date(),
 }) {
   const app = express();
@@ -36,6 +46,18 @@ function createApp({
     runInTransaction,
     now,
   });
+  const authService = createAuthService({ usersRepository, jwtSecret, jwtExpiresIn });
+  const authenticate = createAuthenticate({ jwtSecret });
+
+  app.use(
+    '/api/auth',
+    createAuthRouter({ authController: createAuthController({ authService }), authenticate })
+  );
+
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
+
+  // publiczne są tylko /api/auth/register, /api/auth/login i /api/docs (wyżej) - wszystko poniżej wymaga tokenu
+  app.use('/api', authenticate);
 
   app.use(
     '/api/buildings',

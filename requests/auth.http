@@ -1,0 +1,79 @@
+@baseUrl = http://localhost:3000/api
+
+### 1. Poprawna rejestracja -> 201
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "Jan.Kowalski@example.com",
+  "password": "bardzo-dlugie-haslo"
+}
+
+### 2. Próba rejestracji z rolą ADMIN -> 400
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "haker@example.com",
+  "password": "bardzo-dlugie-haslo",
+  "role": "ADMIN"
+}
+
+### 3. Zbyt krótkie hasło -> 400
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "anna.nowak@example.com",
+  "password": "krotkie"
+}
+
+### 4. Duplikat emaila różniący się wielkością liter -> 409 EMAIL_TAKEN
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "JAN.KOWALSKI@EXAMPLE.COM",
+  "password": "inne-dlugie-haslo"
+}
+
+### 5. Niepoprawny email -> 400
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "to-nie-jest-email",
+  "password": "bardzo-dlugie-haslo"
+}
+
+### 6. Logowanie -> 200 + accessToken
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "jan.kowalski@example.com",
+  "password": "bardzo-dlugie-haslo"
+}
+
+### 7. Dane zalogowanego użytkownika -> 200
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{login.response.body.accessToken}}
+
+### 8. Logowanie - nieistniejący email -> 401
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "nie.istnieje@example.com",
+  "password": "bardzo-dlugie-haslo"
+}
+
+### 9. Logowanie - złe hasło -> 401 (identyczna odpowiedź jak w 8)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "jan.kowalski@example.com",
+  "password": "zle-haslo-123"
+}

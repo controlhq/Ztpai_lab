@@ -1,5 +1,32 @@
+const bcrypt = require('bcryptjs');
+const { BCRYPT_ROUNDS } = require('../src/modules/auth/auth.service');
+
 exports.seed = async function (knex) {
-  await knex.raw('TRUNCATE TABLE reservations, rooms, buildings RESTART IDENTITY CASCADE');
+  await knex.raw('TRUNCATE TABLE reservations, rooms, buildings, users RESTART IDENTITY CASCADE');
+
+  // jedyne miejsce, w którym powstaje konto ADMIN
+  await knex('users').insert({
+    email: 'admin@example.com',
+    password_hash: await bcrypt.hash('admin-haslo-123', BCRYPT_ROUNDS),
+    role: 'ADMIN',
+  });
+
+  // konta testowe (id 2-6), wszystkie z hasłem USER_PASSWORD
+  const USER_PASSWORD = 'bardzo-dlugie-haslo';
+  const userEmails = [
+    'jan.kowalski@example.com',
+    'anna.nowak@example.com',
+    'piotr.zielinski@example.com',
+    'ewa.lis@example.com',
+    'marek.kot@example.com',
+  ];
+  for (const email of userEmails) {
+    await knex('users').insert({
+      email,
+      password_hash: await bcrypt.hash(USER_PASSWORD, BCRYPT_ROUNDS),
+      role: 'USER',
+    });
+  }
 
   await knex('buildings').insert([
     { name: 'Budynek A', address: 'ul. Warszawska 24, Kraków' },
@@ -18,7 +45,7 @@ exports.seed = async function (knex) {
   await knex('reservations').insert([
     {
       room_id: 1,
-      reserved_by: 'Jan Kowalski',
+      user_id: 2,
       participants: 10,
       start_time: new Date(now - 3600e3),
       end_time: new Date(now + 3600e3),
@@ -27,7 +54,7 @@ exports.seed = async function (knex) {
     },
     {
       room_id: 2,
-      reserved_by: 'Anna Nowak',
+      user_id: 3,
       participants: 5,
       start_time: '2026-11-10 10:00+01',
       end_time: '2026-11-10 12:00+01',
@@ -36,7 +63,7 @@ exports.seed = async function (knex) {
     },
     {
       room_id: 3,
-      reserved_by: 'Piotr Zieliński',
+      user_id: 4,
       participants: 40,
       start_time: '2026-11-12 09:00+01',
       end_time: '2026-11-12 11:00+01',
@@ -44,7 +71,7 @@ exports.seed = async function (knex) {
     },
     {
       room_id: 4,
-      reserved_by: 'Ewa Lis',
+      user_id: 5,
       participants: 12,
       start_time: '2026-11-13 14:00+01',
       end_time: '2026-11-13 15:30+01',
@@ -52,7 +79,7 @@ exports.seed = async function (knex) {
     },
     {
       room_id: 5,
-      reserved_by: 'Marek Kot',
+      user_id: 6,
       participants: 8,
       start_time: '2026-11-14 08:00+01',
       end_time: '2026-11-14 09:00+01',
