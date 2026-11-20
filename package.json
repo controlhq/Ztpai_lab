@@ -2,10 +2,11 @@
   "name": "lab2-room-booking-api",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
+  "main": "src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
+    "test": "npm run test:unit",
+    "test:unit": "jest --selectProjects unit",
+    "start": "node src/server.js",
     "migrate:make": "knex migrate:make",
     "migrate:latest": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback --all",
@@ -24,5 +25,8 @@
     "pg": "^8.23.1",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "jest": "^30.5.2"
   }
 }
