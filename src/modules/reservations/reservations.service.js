@@ -94,7 +94,7 @@ function createReservationsService({
       throw bodyError('startTime', 'startTime must not be in the past');
     }
 
-    if (participants >= room.capacity) {
+    if (participants > room.capacity) {
       throw new ConflictError('ROOM_CAPACITY_EXCEEDED', 'Room capacity exceeded');
     }
 
