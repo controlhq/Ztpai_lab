@@ -1,5 +1,7 @@
 # Room Booking API
 
+[![CI](https://github.com/controlhq/Ztpai_lab/actions/workflows/ci.yml/badge.svg)](https://github.com/controlhq/Ztpai_lab/actions/workflows/ci.yml)
+
 REST API do rezerwacji sal (Node.js + Express, PostgreSQL + Knex, JWT z rolami `USER` / `ADMIN`).
 
 ## Uruchomienie (Docker Compose)
