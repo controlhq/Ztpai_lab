@@ -1,34 +1,39 @@
-function createRoomsRepository() {
-  const rooms = [
-    { id: 1, name: 'A101', capacity: 30 },
-    { id: 2, name: 'B202', capacity: 15 },
-    { id: 3, name: 'C303', capacity: 50 },
-    { id: 4, name: 'D404', capacity: 8 },
-  ];
+const DEFAULT_ROOMS = [
+  { id: 1, buildingId: 1, name: 'A101', capacity: 30 },
+  { id: 2, buildingId: 1, name: 'B202', capacity: 15 },
+  { id: 3, buildingId: 2, name: 'C303', capacity: 50 },
+  { id: 4, buildingId: 2, name: 'D404', capacity: 8 },
+];
+
+function createRoomsRepository({ rooms: initialRooms = DEFAULT_ROOMS } = {}) {
+  const rooms = initialRooms.map((r) => ({ createdAt: '2026-01-01T00:00:00.000Z', ...r }));
+  let nextId = rooms.reduce((max, r) => Math.max(max, r.id), 0) + 1;
+
+  const findById = async (id) => {
+    const room = rooms.find((r) => r.id === id);
+    return room ? { ...room } : null;
+  };
 
   return {
     async findAll() {
       return rooms.map((r) => ({ ...r }));
     },
 
-    async findById(id) {
-      const room = rooms.find((r) => r.id === id);
-      return room ? { ...room } : null;
-    },
-    
-    async findByIdWithBuilding(id) {
-      const row = await db('rooms as r')
-        .join('buildings as b', 'b.id', 'r.building_id')
-        .select('r.*', 'b.id as b_id', 'b.name as b_name')
-        .where('r.id', id)
-        .first();
-      if (!row) return null;
-      return { ...toRoom(row), building: { id: row.b_id, name: row.b_name } };
-    },
+    findById,
 
-    async findByBuildingId(buildingId) {
-      const rows = await db('rooms').where({ building_id: buildingId }).orderBy('id');
-      return rows.map(toRoom);
+    // w pamięci nie ma współbieżnych transakcji, więc blokada nie jest potrzebna
+    findByIdForUpdate: findById,
+
+    async create({ buildingId, name, capacity }) {
+      const room = {
+        id: nextId++,
+        buildingId,
+        name,
+        capacity,
+        createdAt: new Date().toISOString(),
+      };
+      rooms.push(room);
+      return { ...room };
     },
   };
 }
