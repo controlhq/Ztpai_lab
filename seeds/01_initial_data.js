@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const { BCRYPT_ROUNDS } = require('../src/modules/auth/auth.service');
 
 exports.seed = async function (knex) {
-  await knex.raw('TRUNCATE TABLE reservations, rooms, buildings, users RESTART IDENTITY CASCADE');
+  await knex.raw('TRUNCATE TABLE audit_log, reservations, rooms, buildings, users RESTART IDENTITY CASCADE');
 
   // jedyne miejsce, w którym powstaje konto ADMIN
   await knex('users').insert({

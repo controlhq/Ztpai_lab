@@ -48,4 +48,4 @@ const listReservationsQuery = z
     path: ['to'],
   });
 
-module.exports = { createReservationBody, reservationIdParams, listReservationsQuery };
+module.exports = { createReservationBody, reservationIdParams, listReservationsQuery, limitParam };

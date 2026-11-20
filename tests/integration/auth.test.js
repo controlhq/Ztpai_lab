@@ -1,11 +1,11 @@
 const request = require('supertest');
-const { db, buildApp, migrate, truncateAll, createUser, createRoom, auth } = require('./helpers');
+const { db, buildApp, migrate, truncateAll, closeDb, createUser, createRoom, auth } = require('./helpers');
 
 const app = buildApp();
 
 beforeAll(migrate);
 beforeEach(truncateAll);
-afterAll(() => db.destroy());
+afterAll(closeDb);
 
 describe('auth', () => {
   test('register, login and GET /api/auth/me', async () => {

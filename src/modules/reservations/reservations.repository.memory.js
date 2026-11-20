@@ -51,6 +51,12 @@ function createReservationsRepository({ reservations: initial = [] } = {}) {
       return reservation ? { ...reservation } : null;
     },
 
+    // w pamięci nie ma współbieżnych transakcji - blokada niepotrzebna
+    async findByIdForUpdate(id) {
+      const reservation = reservations.find((r) => r.id === id);
+      return reservation ? { ...reservation } : null;
+    },
+
     async create(data) {
       const reservation = { id: nextId++, ...data };
       reservations.push(reservation);

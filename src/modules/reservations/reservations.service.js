@@ -1,4 +1,5 @@
 const { NotFoundError, ConflictError, ValidationError, ForbiddenError } = require('../../errors');
+const { EVENTS } = require('../../events/eventBus');
 
 const MIN_DURATION_MS = 15 * 60 * 1000;
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
@@ -35,6 +36,7 @@ function createReservationsService({
   reservationsRepository,
   roomsRepository,
   runInTransaction,
+  eventBus,
   now = () => new Date(),
 }) {
   return {
@@ -68,7 +70,7 @@ function createReservationsService({
     },
 
     async create({ roomId, participants, startTime, endTime }, currentUser) {
-  return runInTransaction(async ({ roomsRepository, reservationsRepository }) => {
+  const reservation = await runInTransaction(async ({ roomsRepository, reservationsRepository }) => {
     // blokada wiersza sali: równoległe rezerwacje tej samej sali czekają na commit
     const room = await roomsRepository.findByIdForUpdate(roomId);
     if (!room) {
@@ -125,36 +127,60 @@ function createReservationsService({
     });
     return reservationsRepository.findByIdDetailed(created.id);
   });
+
+  // dopiero po commicie - błąd (np. 409) przerywa create wcześniej, więc event nie powstaje
+  eventBus.publish(EVENTS.RESERVATION_CREATED, {
+    reservationId: reservation.id,
+    roomId: reservation.roomId,
+    userId: reservation.userId,
+    startTime: reservation.startTime,
+    endTime: reservation.endTime,
+  });
+  return reservation;
 },
 
     async cancel(id, currentUser) {
-      const reservation = await reservationsRepository.findByIdDetailed(id);
-      assertCanAccess(reservation, currentUser);
+      const { reservation, changed } = await runInTransaction(async ({ reservationsRepository }) => {
+        // blokada wiersza: równoległe anulowania tej samej rezerwacji wykonują się po kolei
+        const current = await reservationsRepository.findByIdForUpdate(id);
+        assertCanAccess(current, currentUser);
 
-      // idempotentnie: ponowne anulowanie nic nie zmienia (cancelledAt zostaje)
-      if (reservation.status === 'CANCELLED') {
-        return reservation;
-      }
+        // idempotentnie: ponowne anulowanie nic nie zmienia (cancelledAt zostaje)
+        if (current.status === 'CANCELLED') {
+          return { reservation: await reservationsRepository.findByIdDetailed(id), changed: false };
+        }
 
-      if (new Date(reservation.startTime).getTime() <= now().getTime()) {
-        throw new ConflictError(
-          'RESERVATION_ALREADY_STARTED',
-          'Reservation has already started and cannot be cancelled'
-        );
-      }
+        if (new Date(current.startTime).getTime() <= now().getTime()) {
+          throw new ConflictError(
+            'RESERVATION_ALREADY_STARTED',
+            'Reservation has already started and cannot be cancelled'
+          );
+        }
 
-      if (!canTransition(reservation.status, 'CANCELLED')) {
-        throw new ConflictError(
-          'INVALID_STATUS_TRANSITION',
-          `Cannot change status from ${reservation.status} to CANCELLED`
-        );
-      }
+        if (!canTransition(current.status, 'CANCELLED')) {
+          throw new ConflictError(
+            'INVALID_STATUS_TRANSITION',
+            `Cannot change status from ${current.status} to CANCELLED`
+          );
+        }
 
-      await reservationsRepository.update(id, {
-        status: 'CANCELLED',
-        cancelledAt: now().toISOString(),
+        await reservationsRepository.update(id, {
+          status: 'CANCELLED',
+          cancelledAt: now().toISOString(),
+        });
+        return { reservation: await reservationsRepository.findByIdDetailed(id), changed: true };
       });
-      return reservationsRepository.findByIdDetailed(id);
+
+      // event tylko przy faktycznej zmianie statusu i po commicie transakcji
+      if (changed) {
+        eventBus.publish(EVENTS.RESERVATION_CANCELLED, {
+          reservationId: reservation.id,
+          roomId: reservation.roomId,
+          userId: reservation.userId,
+          cancelledBy: currentUser.id,
+        });
+      }
+      return reservation;
     },
   };
 }

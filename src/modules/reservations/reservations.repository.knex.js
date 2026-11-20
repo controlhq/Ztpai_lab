@@ -116,6 +116,10 @@ function createReservationsKnexRepository({ db }) {
       const row = await db('reservations').where({ id }).first();
       return row ? toReservation(row) : null;
     },
+    async findByIdForUpdate(id) {
+      const row = await db('reservations').where({ id }).forUpdate().first();
+      return row ? toReservation(row) : null;
+    },
     async create(data) {
       const [row] = await db('reservations').insert(toRow(data)).returning('*');
       return toReservation(row);

@@ -2,11 +2,15 @@ const { createApp } = require('./app');
 const db = require('./db/knex');
 const { createKnexDependencies } = require('./container');
 const config = require('./config');
+const { createEventBus } = require('./events/eventBus');
 
 const SHUTDOWN_TIMEOUT_MS = 8000;
 
+const eventBus = createEventBus();
+
 const app = createApp({
   ...createKnexDependencies(db),
+  eventBus,
   jwtSecret: config.jwt.secret,
   jwtExpiresIn: config.jwt.expiresIn,
   now: () => new Date(),
@@ -35,6 +39,8 @@ function shutdown(signal) {
     else console.log('HTTP server closed');
 
     try {
+      // listenery w toku (np. zapis do audit_log) muszą skończyć przed zamknięciem puli
+      await eventBus.drain();
       await db.destroy();
       console.log('Database connection pool closed');
     } catch (dbErr) {

@@ -4,12 +4,18 @@ const db = require('../../src/db/knex');
 const config = require('../../src/config');
 const { createApp } = require('../../src/app');
 const { createKnexDependencies } = require('../../src/container');
+const { createEventBus } = require('../../src/events/eventBus');
 
 const PASSWORD = 'integration-test-password';
+
+// wspólny bus pozwala poczekać na listenery (zapis do audit_log), zanim test sprawdzi bazę lub ją wyczyści
+const eventBus = createEventBus();
+const settleEvents = () => eventBus.drain();
 
 function buildApp() {
   return createApp({
     ...createKnexDependencies(db),
+    eventBus,
     jwtSecret: config.jwt.secret,
     jwtExpiresIn: config.jwt.expiresIn,
   });
@@ -20,6 +26,7 @@ async function migrate() {
 }
 
 async function truncateAll() {
+  await settleEvents();
   const tables = await db('pg_tables')
     .where({ schemaname: 'public' })
     .whereNot('tablename', 'like', 'knex_migrations%')
@@ -52,4 +59,20 @@ async function createRoom({ capacity = 10, name = '101' } = {}) {
 
 const auth = (user) => ({ Authorization: `Bearer ${user.token}` });
 
-module.exports = { db, buildApp, migrate, truncateAll, createUser, createRoom, auth, PASSWORD };
+async function closeDb() {
+  await settleEvents();
+  await db.destroy();
+}
+
+module.exports = {
+  db,
+  buildApp,
+  migrate,
+  truncateAll,
+  closeDb,
+  settleEvents,
+  createUser,
+  createRoom,
+  auth,
+  PASSWORD,
+};

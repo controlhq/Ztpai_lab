@@ -22,15 +22,24 @@ const { createAuthController } = require('./modules/auth/auth.controller');
 const { createAuthRouter } = require('./modules/auth/auth.routes');
 const { createAuthenticate } = require('./middleware/authenticate');
 
+const { createEventBus } = require('./events/eventBus');
+const { registerAuditLogListener } = require('./modules/audit-log/audit-log.listener');
+const { createAuditLogService } = require('./modules/audit-log/audit-log.service');
+const { createAuditLogController } = require('./modules/audit-log/audit-log.controller');
+const { createAdminRouter } = require('./modules/audit-log/audit-log.routes');
+const { registerNotificationListener } = require('./modules/notifications/notifications.listener');
+
 // Buduje aplikację, ale jej nie uruchamia. Repositories i zegar wstrzykiwane z zewnątrz.
 function createApp({
   roomsRepository,
   reservationsRepository,
   buildingsRepository,
   usersRepository,
+  auditLogRepository,
   runInTransaction,
   jwtSecret,
   jwtExpiresIn,
+  eventBus = createEventBus(),
   now = () => new Date(),
 }) {
   const app = express();
@@ -38,14 +47,19 @@ function createApp({
   app.use(requestLogger);
   app.use(express.json());
 
+  registerAuditLogListener({ eventBus, auditLogRepository });
+  registerNotificationListener({ eventBus, usersRepository });
+
   const roomsService = createRoomsService({ roomsRepository, buildingsRepository });
   const buildingsService = createBuildingsService({ buildingsRepository, roomsRepository });
   const reservationsService = createReservationsService({
     reservationsRepository,
     roomsRepository,
     runInTransaction,
+    eventBus,
     now,
   });
+  const auditLogService = createAuditLogService({ auditLogRepository });
   const authService = createAuthService({ usersRepository, jwtSecret, jwtExpiresIn });
   const authenticate = createAuthenticate({ jwtSecret });
 
@@ -72,6 +86,11 @@ function createApp({
     createReservationsRouter({
       reservationsController: createReservationsController({ reservationsService }),
     })
+  );
+
+  app.use(
+    '/api/admin',
+    createAdminRouter({ auditLogController: createAuditLogController({ auditLogService }) })
   );
 
   app.get('/api/debug/crash', () => {

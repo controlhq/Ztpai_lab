@@ -1,11 +1,11 @@
 const request = require('supertest');
-const { db, buildApp, migrate, truncateAll, createUser, createRoom, auth } = require('./helpers');
+const { db, buildApp, migrate, truncateAll, closeDb, createUser, createRoom, auth } = require('./helpers');
 
 const app = buildApp();
 
 beforeAll(migrate);
 beforeEach(truncateAll);
-afterAll(() => db.destroy());
+afterAll(closeDb);
 
 // daleko w przyszłości, żeby reguła "nie w przeszłości" nie zależała od daty uruchomienia
 const day = (hhmm, date = '2030-01-15') => `${date}T${hhmm}:00.000Z`;

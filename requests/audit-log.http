@@ -1,0 +1,70 @@
+@baseUrl = http://localhost:3000/api
+
+# Scenariusz audit logu (po `docker compose exec api npx knex seed:run`):
+# utworzenie -> kolizja 409 -> anulowanie przez ADMINa -> ponowne anulowanie -> audit log
+
+### Login: Jan (właściciel rezerwacji)
+# @name jan
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "jan.kowalski@example.com", "password": "bardzo-dlugie-haslo" }
+
+### Login: Anna (próba kolizji)
+# @name anna
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "anna.nowak@example.com", "password": "bardzo-dlugie-haslo" }
+
+### Login: ADMIN
+# @name admin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "admin-haslo-123" }
+
+### 1. Jan tworzy rezerwację -> 201 (event reservation.created)
+# @name created
+POST {{baseUrl}}/reservations
+Authorization: Bearer {{jan.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "roomId": 1,
+  "participants": 5,
+  "startTime": "2027-03-10T10:00:00Z",
+  "endTime": "2027-03-10T11:00:00Z"
+}
+
+### 2. Anna rezerwuje ten sam termin -> 409 ROOM_ALREADY_BOOKED (brak eventu)
+POST {{baseUrl}}/reservations
+Authorization: Bearer {{anna.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "roomId": 1,
+  "participants": 3,
+  "startTime": "2027-03-10T10:30:00Z",
+  "endTime": "2027-03-10T11:30:00Z"
+}
+
+### 3. ADMIN anuluje rezerwację Jana -> 200 (event reservation.cancelled + [notification] w logach api)
+PATCH {{baseUrl}}/reservations/{{created.response.body.id}}/cancel
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+### 4. Ponowne anulowanie -> 200, idempotentne (brak eventu)
+PATCH {{baseUrl}}/reservations/{{created.response.body.id}}/cancel
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+### 5. Audit log (ADMIN) - od najnowszych
+GET {{baseUrl}}/admin/audit-log
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+### 6. Audit log z filtrem eventType
+GET {{baseUrl}}/admin/audit-log?eventType=reservation.cancelled
+Authorization: Bearer {{admin.response.body.accessToken}}
+
+### 7. Audit log jako USER -> 403
+GET {{baseUrl}}/admin/audit-log
+Authorization: Bearer {{jan.response.body.accessToken}}

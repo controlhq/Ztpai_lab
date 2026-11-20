@@ -22,7 +22,7 @@ module.exports = {
   },
   servers: [{ url: '/' }],
   security: [{ bearerAuth: [] }],
-  tags: [{ name: 'Auth' }, { name: 'Buildings' }, { name: 'Rooms' }, { name: 'Reservations' }],
+  tags: [{ name: 'Auth' }, { name: 'Buildings' }, { name: 'Rooms' }, { name: 'Reservations' }, { name: 'Admin' }],
 
   paths: {
     '/api/auth/register': {
@@ -216,6 +216,28 @@ module.exports = {
           401: err('Unauthorized'),
           404: err('NotFound'),
           409: err('Conflict'),
+        },
+      },
+    },
+
+    '/api/admin/audit-log': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Audit log zdarzeń rezerwacji, od najnowszych (tylko ADMIN)',
+        parameters: [
+          queryParam(
+            'eventType',
+            { type: 'string', enum: ['reservation.created', 'reservation.cancelled'] },
+            'Filtr po typie zdarzenia'
+          ),
+          queryParam('page', { type: 'integer', minimum: 1, default: 1 }, 'Numer strony'),
+          queryParam('limit', { type: 'integer', minimum: 1, maximum: 100, default: 20 }, 'Rozmiar strony'),
+        ],
+        responses: {
+          200: ok('Strona wpisów audit logu', ref('AuditLogPage')),
+          400: err('BadRequest'),
+          401: err('Unauthorized'),
+          403: err('Forbidden'),
         },
       },
     },
@@ -415,6 +437,25 @@ module.exports = {
               totalPages: { type: 'integer' },
             },
           },
+        },
+      },
+      AuditLogEntry: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 2 },
+          eventType: { type: 'string', example: 'reservation.cancelled' },
+          payload: {
+            type: 'object',
+            example: { reservationId: 1, roomId: 1, userId: 2, cancelledBy: 1 },
+          },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      AuditLogPage: {
+        type: 'object',
+        properties: {
+          data: { type: 'array', items: ref('AuditLogEntry') },
+          meta: { $ref: '#/components/schemas/ReservationPage/properties/meta' },
         },
       },
     },
